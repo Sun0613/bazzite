@@ -13,7 +13,7 @@
 ---
 
 # Содержание
-- [🇺🇸 🇪🇸 🇮🇩 🇨🇳 🇫🇷 🇧🇷 🇳🇱 🇷🇺](#--------)
+- [🇺🇸 🇪🇸 🇮🇩 🇨🇳 🇫🇷 🇧🇷 🇳🇱 🇷🇺](#-------)
 - [Содержание](#содержание)
   - [О проекте и особенности](#о-проекте-и-особенности)
     - [Десктопная версия](#десктопная-версия)
@@ -28,8 +28,8 @@
   - [Документация](#документация)
   - [Проверка подлинности](#проверка-подлинности)
   - [Secure Boot](#secure-boot)
-    - [Метрики участников](#метрики-участников)
-      - [История звезд](#история-звезд)
+  - [Метрики участников](#метрики-участников)
+  - [История звезд](#история-звезд)
   - [Особая благодарность](#особая-благодарность)
   - [Соберите свою версию](#соберите-свою-версию)
   - [Присоединяйтесь к сообществу](#присоединяйтесь-к-сообществу)
@@ -43,7 +43,7 @@
 
 Bazzite основан на [ublue-os/main](https://github.com/ublue-os/main) и [ublue-os/nvidia](https://github.com/ublue-os/nvidia) с использованием технологий [Fedora](https://fedoraproject.org/), что обеспечивает расширенную поддержку оборудования и встроенные драйверы. Дополнительно Bazzite включает следующие функции:
 
-- Использует [ядро bazzite](https://github.com/hhd-dev/kernel-bazzite) для поддержки HDR и расширенной работы с оборудованием, а также множество других патчей — основано на [ядре fsync](https://copr.fedorainfracloud.org/coprs/sentry/kernel-fsync/).
+- Использует [ядро bazzite](https://github.com/bazzite-org/kernel-bazzite) для поддержки HDR и расширенной работы с оборудованием, а также множество других патчей — основано на [ядре fsync](https://copr.fedorainfracloud.org/coprs/sentry/kernel-fsync/).
 - Поддержка HDR в игровом режиме.
 - NVK доступен в сборках без NVIDIA.
 - Полная поддержка аппаратного ускорения для декодирования H264.
@@ -53,10 +53,9 @@ Bazzite основан на [ublue-os/main](https://github.com/ublue-os/main) и
 - Включены темы KDE от Valve из SteamOS.
 - [LatencyFleX](https://github.com/ishitatsuyuki/LatencyFleX), [vkBasalt](https://github.com/DadSchoorse/vkBasalt), [MangoHud](https://github.com/flightlessmango/Mangohud) и [OBS VkCapture](https://github.com/nowrep/obs-vkcapture) установлены по умолчанию.
 - [Исправленный Switcheroo-Control](https://copr.fedorainfracloud.org/coprs/sentry/switcheroo-control_discrete/) для корректного переключения между iGPU и dGPU.
-- Поддержка [Wallpaper Engine](https://www.wallpaperengine.io/en). <sub><sup>(Только для KDE)</sup></sub>
 - Расширение [ROM Properties Page](https://github.com/GerbilSoft/rom-properties) включено.
 - Полная поддержка [Winesync/Fastsync/NTsync](https://github.com/Frogging-Family/wine-tkg-git/issues/936).
-- [Distrobox](https://github.com/89luca89/distrobox) предустановлен с автоматическим обновлением контейнеров.
+- [Distrobox](https://github.com/89luca89/distrobox) предустановлен.
 - Упрощенная установка Davinci Resolve с [davincibox](https://github.com/zelikos/davincibox) (`ujust install-resolve`).
 - [Ptyxis Terminal](https://gitlab.gnome.org/chergert/ptyxis) используется по умолчанию. Этот терминал разработан для работы с контейнерами. KDE Konsole и GNOME Console можно установить как Flatpak.
 - Автоматическая служба `duperemove` для уменьшения места, занимаемого wine-префиксами.
@@ -78,7 +77,7 @@ Bazzite основан на [ublue-os/main](https://github.com/ublue-os/main) и
 
 Основная версия `bazzite` подходит для настольных компьютеров.
 
-- Автоматические обновления ОС, Flatpak и контейнеров Distrobox — благодаря [ublue-update](https://github.com/ublue-os/ublue-update) и [topgrade](https://github.com/topgrade-rs/topgrade).
+- Автоматические обновления ОС, Flatpak и другое — благодаря [ublue-update](https://github.com/ublue-os/ublue-update) и [topgrade](https://github.com/topgrade-rs/topgrade).
 
 > [!IMPORTANT]
 > **ISO-образы можно скачать с нашего [сайта](https://download.bazzite.gg), а руководство по установке доступно [здесь](https://docs.bazzite.gg/General/Installation_Guide/).**
@@ -113,7 +112,7 @@ rpm-ostree rebase ostree-unverified-registry:ghcr.io/ublue-os/bazzite-nvidia:sta
 - Патчи [SteamOS BTRFS](https://gitlab.com/popsulfr/steamos-btrfs) для полной поддержки BTRFS на SD-картах.
 - Включен порт [SDGyroDSU](https://github.com/kmicki/SteamDeckGyroDSU).
 - Опция установки [Decky Loader](https://github.com/SteamDeckHomebrew/decky-loader), [EmuDeck](https://www.emudeck.com/), [RetroDECK](https://retrodeck.net/) и [ProtonUp-Qt](https://davidotek.github.io/protonup-qt/) при установке.
-- Обновления ОС, Flatpak и контейнеров Distrobox доступны прямо из игрового режима благодаря [ublue-update](https://github.com/ublue-os/ublue-update) и [topgrade](https://github.com/topgrade-rs/topgrade).
+- Обновления ОС, Flatpak и другое доступны прямо из игрового режима благодаря [ublue-update](https://github.com/ublue-os/ublue-update) и [topgrade](https://github.com/topgrade-rs/topgrade).
 - Поддержка двойной загрузки с Windows благодаря GRUB от Fedora.
 - Возможность отката к предыдущей версии Bazzite благодаря функции `rpm-ostree`. Можно выбрать предыдущий образ при загрузке.
 - Steam и Lutris предустановлены.
@@ -125,7 +124,6 @@ rpm-ostree rebase ostree-unverified-registry:ghcr.io/ublue-os/bazzite-nvidia:sta
 - Цветовые профили для матовых и глянцевых экранов Steam Deck.
 - Функции для опытных пользователей:
     - Уменьшение напряжения на Steam Deck и ноутбуках AMD через [RyzenAdj](https://github.com/FlyGoat/RyzenAdj) и [Ryzen SMU](https://gitlab.com/leogx9r/ryzen_smu) (`ryzenadj.service` и `/etc/default/ryzenadj`).
-    - Ограничение уровня заряда батареи (`batterylimit.service` и `/etc/default/batterylimit`). <sup><sub>(Работает даже при выключенном устройстве)</sub></sup>
     - Разгон дисплея. Например, добавьте `CUSTOM_REFRESH_RATES=30-68` в `/etc/environment`. Минимальная и максимальная частота зависят от устройства!
     - Автоматическое увеличение VRAM для Steam Deck с 32GB RAM. <sup><sub>(Поделитесь навыками пайки?)</sub></sup>
 - Аппаратные службы Steam Deck можно отключить командами `ujust disable-bios-updates` и `ujust disable-firmware-updates`. Они автоматически отключаются на других устройствах и на Deck с DeckHD или 32GB RAM.
@@ -242,7 +240,7 @@ Bazzite использует новейшее ядро Linux, SELinux и под�
 
 ## Проверка подлинности
 
-Образы подписаны с помощью [cosign](https://docs.sigstore.dev/cosign/overview/). Для проверки скачайте ключ `cosign.pub` и выполните:
+Образы подписаны с помощью [cosign](https://docs.sigstore.dev/cosign/signing/overview/). Для проверки скачайте ключ `cosign.pub` и выполните:
 
 ```bash
 cosign verify --key cosign.pub ghcr.io/ublue-os/bazzite
@@ -268,11 +266,11 @@ ujust enroll-secure-boot-key
 
 Пароль: `universalblue`.
 
-### Метрики участников
+## Метрики участников
 
 ![Bazzite](https://repobeats.axiom.co/api/embed/86b500d79c613015ad16f56df76c8e13f3fd98ae.svg "Repobeats analytics image")
 
-#### История звезд
+## История звезд
 
 <a href="https://star-history.com/#ublue-os/bazzite&Date">
   <picture>
@@ -286,7 +284,7 @@ ujust enroll-secure-boot-key
 
 Bazzite — результат работы сообщества. Благодарим:
 
-- [rei.svg](https://github.com/reisvg) — за логотип и брендинг.
+- [amelia.svg](https://bsky.app/profile/ameliasvg.bsky.social) — за логотип и брендинг.
 - [SuperRiderTH](https://github.com/SuperRiderTH) — за видео загрузки игрового режима.
 - [evlaV](https://gitlab.com/evlaV) — за код Valve и поддержку.
 - [ChimeraOS](https://chimeraos.org/) — за gamescope-session.
@@ -300,7 +298,7 @@ Bazzite — результат работы сообщества. Благода
 
 Bazzite собирается в GitHub. Создать свою версию легко: форкните репозиторий, добавьте ключ и включите GitHub Actions.
 
-[Ознакомьтесь](https://docs.github.com/en/actions/security-guides/encrypted-secrets) с секретами в GitHub. Вам понадобится [ключ cosign](https://docs.sigstore.dev/cosign/overview/). Добавьте приватный ключ в `Settings -> Secrets -> Actions` как `SIGNING_SECRET`.
+[Ознакомьтесь](https://docs.github.com/en/actions/security-guides/encrypted-secrets) с секретами в GitHub. Вам понадобится [ключ cosign](https://docs.sigstore.dev/cosign/signing/overview/). Добавьте приватный ключ в `Settings -> Secrets -> Actions` как `SIGNING_SECRET`.
 
 Для синхронизации с upstream используйте [pull app](https://github.com/apps/pull).
 

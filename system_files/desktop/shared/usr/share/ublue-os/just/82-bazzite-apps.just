@@ -25,15 +25,91 @@ _install_appimage_file $APPIMAGE_SRC $filename="":
     LC_ALL=C flatpak run it.mijorus.gearlever "$appimage_file" <&-
 
 # Install CoolerControl, a GUI for viewing all your system's sensors and for creating custom fan and pump profiles based on any available temperature sensor28
+[group("apps")]
 install-coolercontrol:
-    #!/usr/bin/bash
-    echo 'Enabling Terra Repository.'
-    sudo sed -i 's@enabled=0@enabled=1@g' /etc/yum.repos.d/terra.repo
-    echo 'Installing Cooler Control'
-    rpm-ostree install -y liquidctl coolercontrol
-    echo 'Complete, please reboot to apply changes.'
+    #!/usr/bin/env bash
+    set -eo pipefail
+
+    cat <<'EOF'
+    {{ YELLOW }}This recipe will proceed to {{ BOLD }}layer{{ NORMAL }} {{ YELLOW }}CoolerControl{{ NORMAL }}.
+    {{ YELLOW }}If updates start to fail, please use "{{ BOLD }}rpm-ostree reset{{ NORMAL }}"
+    {{ YELLOW }}See https://docs.bazzite.gg/Installing_and_Managing_Software/rpm-ostree/#major-caveats-using-rpm-ostree{{ NORMAL }}
+    EOF
+
+    layered() {
+        local pkg="$1"
+        rpm-ostree status --json | jq -e ".deployments[] | select(.booted == true) | .packages | index(\"$pkg\")" > /dev/null
+    }
+    packages=()
+    for pkg in liquidctl coolercontrol; do
+        if layered "$pkg"; then
+            echo "$pkg is already layered, skipping."
+        else
+            packages+=("$pkg")
+        fi
+    done
+
+    if [ ${#packages[@]} -gt 0 ]; then
+        repo_path="/etc/yum.repos.d/terra.repo"
+
+        if ( ! grep -q "enabled=0" "$repo_path" ); then  # if not matches found
+            echo 'Terra Repository is already enabled, skipping.'
+        else
+            echo 'Enabling Terra Repository.'
+            sudo sed -i 's@enabled=0@enabled=1@g' "$repo_path"
+        fi
+
+        echo "Installing: ${packages[*]}"
+        rpm-ostree install -y "${packages[@]}"
+        echo 'Complete, please reboot to apply changes.'
+    else
+        echo "No changes were made."
+    fi
+
+# Install Displaylink, Needed for some laptop docks to output video
+[group("apps")]
+install-displaylink:
+    #!/usr/bin/env bash
+    set -eo pipefail
+
+    cat <<'EOF'
+    {{ YELLOW }}This recipe will proceed to {{ BOLD }}layer{{ NORMAL }} {{ YELLOW }}Displaylink{{ NORMAL }}.
+    {{ YELLOW }}If updates start to fail, please use "{{ BOLD }}rpm-ostree reset{{ NORMAL }}"
+    {{ YELLOW }}See https://docs.bazzite.gg/Installing_and_Managing_Software/rpm-ostree/#major-caveats-using-rpm-ostree{{ NORMAL }}
+    EOF
+
+    layered() {
+        local pkg="$1"
+        rpm-ostree status --json | jq -e ".deployments[] | select(.booted == true) | .packages | index(\"$pkg\")" > /dev/null
+    }
+    packages=()
+    for pkg in displaylink; do
+        if layered "$pkg"; then
+            echo "$pkg is already layered, skipping."
+        else
+            packages+=("$pkg")
+        fi
+    done
+
+    if [ ${#packages[@]} -gt 0 ]; then
+        repo_path="/etc/yum.repos.d/negativo17-fedora-multimedia.repo"
+
+        if ( ! grep -q "enabled=0" "$repo_path" ); then  # if not matches found
+            echo 'Negativo17 Multimedia Repository is already enabled, skipping.'
+        else
+            echo 'Enabling Negativo17 Multimedia Repository.'
+            sudo sed -i 's@enabled=0@enabled=1@g' "$repo_path"
+        fi
+
+        echo "Installing: ${packages[*]}"
+        rpm-ostree install -y "${packages[@]}"
+        echo 'Complete, please reboot to apply changes.'
+    else
+        echo "No changes were made."
+    fi
 
 # Install JetBrains Toolbox | https://www.jetbrains.com/toolbox-app/
+[group("apps")]
 install-jetbrains-toolbox:
     #!/usr/bin/env bash
     pushd "$(mktemp -d)"
@@ -56,14 +132,25 @@ install-jetbrains-toolbox:
 alias get-steamcmd := install-steamcmd
 
 # Install SteamCMD (https://developer.valvesoftware.com/wiki/SteamCMD)
+[group("gaming")]
 install-steamcmd:
+    #!/usr/bin/bash
+    if [[ $UID -eq 0 ]]; then
+        echo >&2 "This ujust should not be run as root."
+        exit 1
+    fi
     echo 'Installing SteamCMD...'
     wget https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz -O /tmp/steamcmd.tar.gz
     mkdir -p ~/.steam
     tar -xvzf /tmp/steamcmd.tar.gz -C ~/.steam
     rm /tmp/steamcmd.tar.gz
+    if [[ -f ~/.steam/steamcmd.sh ]]; then
+        mkdir -p ~/.local/bin
+        ln -s ~/.steam/steamcmd.sh ~/.local/bin/steamcmd
+    fi
 
 # Install OpenRazer for Razer gaming hardware
+[group("hardware")]
 install-openrazer:
     #!/usr/bin/bash
     source /usr/lib/ujust/ujust.sh
@@ -95,6 +182,7 @@ install-openrazer:
 alias get-emudeck := install-emudeck
 
 # Install EmuDeck (https://www.emudeck.com/)
+[group("gaming")]
 install-emudeck:
     #!/usr/bin/bash
     set -eo pipefail
@@ -105,30 +193,17 @@ install-emudeck:
     just _install_appimage_file "$remote_appimage_url"
 
 # Install OpenRGB (https://openrgb.org/)
+[group("hardware")]
 install-openrgb: (_install_appimage_file "https://openrgb.org/releases/release_0.9/OpenRGB_0.9_x86_64_b5f46e3.AppImage")
 
 # Install Boxtron, a Steam Play compatibility tool to run DOS games using native Linux DOSBox
+[group("gaming")]
 install-boxtron: distrobox-check-fedora
     distrobox enter -n fedora -- bash -c '\
       sudo dnf install dosbox-staging inotify-tools timidity++ fluid-soundfont-gm -y && \
       cd ~/.steam/root/compatibilitytools.d/ && \
       curl -L https://github.com/dreamer/boxtron/releases/download/v0.5.4/boxtron.tar.xz | tar xJf - && \
       distrobox-export --bin /usr/bin/dosbox'
-
-alias get-wootility := install-wootility
-
-# Install Wootility for configuring Wooting Keyboards
-install-wootility: (_install_appimage_file "https://api.wooting.io/public/wootility/download?os=linux" "wootility.Appimage")
-
-# Install Adwaita-for-Steam theme for CSS Loader (https://github.com/tkashkin/Adwaita-for-Steam)
-install-adwaita-for-steam:
-    #!/usr/bin/bash
-    if [ -d "$HOME/homebrew/themes" ]; then
-        rm -rf "$HOME/homebrew/themes/Adwaita-for-Steam"
-        git clone https://github.com/tkashkin/Adwaita-for-Steam.git --single-branch "$HOME/homebrew/themes/Adwaita-for-Steam"
-    else
-        echo 'Please install Decky Loader by running "ujust setup-decky install" first, then install CSS Loader from the Decky Plugin Store.'
-    fi
 
 # Install Resilio Sync, a file synchronization utility powered by BitTorrent
 install-resilio-sync: distrobox-check-fedora
@@ -142,12 +217,14 @@ install-resilio-sync: distrobox-check-fedora
     systemctl enable --user --now fedora-resilio-sync.service
 
 # Install scrcpy, a utility that mirrors Android devices (video and audio) connected via USB or over TCP/IP
+[group("apps")]
 install-scrcpy: distrobox-check-fedora
     distrobox enter -n fedora -- bash -c 'sudo dnf copr enable -y zeno/scrcpy && \
       sudo dnf install -y scrcpy && \
       distrobox-export --app scrcpy'
 
 # Install OpenTabletDriver, an open source, cross-platform, user-mode tablet driver
+[group("hardware")]
 install-opentabletdriver:
     #!/usr/bin/bash
     source /usr/lib/ujust/ujust.sh
@@ -165,16 +242,19 @@ install-opentabletdriver:
     mkdir -p $HOME/.config/systemd/user && \
     curl -s https://raw.githubusercontent.com/flathub/net.opentabletdriver.OpenTabletDriver/refs/heads/master/scripts/opentabletdriver.service > $HOME/.config/systemd/user/opentabletdriver.service  && \
     systemctl --user daemon-reload && \
-    systemctl enable --user --now opentabletdriver.service
+    systemctl enable --user --now opentabletdriver.service && \
+    rpm-ostree kargs --append-if-missing=modprobe.blacklist=hid_uclogic --append-if-missing=modprobe.blacklist=wacom
 
 # Remove OpenTabletDriver
+[group("hardware")]
 remove-opentabletdriver:
     #!/usr/bin/bash
     source /usr/lib/ujust/ujust.sh
     echo "Uninstalling OpenTabletDriver..."
     sudo -A rm /etc/udev/rules.d/71-opentabletdriver.rules && \
     flatpak --system remove -y flathub net.opentabletdriver.OpenTabletDriver && \
-    systemctl disable --user --now opentabletdriver.service
+    systemctl disable --user --now opentabletdriver.service && \
+    rpm-ostree kargs --delete-if-present=modprobe.blacklist=hid_uclogic --delete-if-present=modprobe.blacklist=wacom
 
 # Create fedora distrobox if it doesn't exist
 [private]

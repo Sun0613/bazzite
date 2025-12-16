@@ -1,197 +1,6 @@
 # vim: set ft=make :
 
-# Set up DLSS-Enabler Upscaling and Framegen mod. This mod replaces DLSS upscaling and frame generation with FSR3 equivalents in supported games.
-get-framegen ACTION="prompt":
-    #!/usr/bin/bash
-    source /usr/lib/ujust/ujust.sh
-    FG_FILES=(
-        "amd_fidelityfx_dx12.dll" "dlssg_to_fsr3_amd_is_better.dll" "libxess.dll"
-        "amd_fidelityfx_vk.dll" "dlssg_to_fsr3.ini"
-        "d3dcompiler_47.dll" "dxgi.dll" "nvapi64.dll"
-        "DisableNvidiaSignatureChecks.reg" "dxvk.conf" "_nvngx.dll"
-        "dlss-enabler.dll" "fakenvapi.ini" "nvngx.ini"
-        "dlss-enabler-upscaler.dll" "fgmod" "nvngx-wrapper.dll"
-        "dlssg_to_fsr3_amd_is_better-3.0.dll" "fgmod-uninstaller.sh" "RestoreNvidiaSignatureChecks.reg"
-    )
-    function check_fgmod_installed() {
-        FG_DIR="$HOME/fgmod"
-        if [[ -d "$FG_DIR" ]]; then
-            for file in "${FG_FILES[@]}"; do
-                # Check if 'licenses' is a directory
-                if [[ "$file" == "licenses" ]]; then
-                    if [[ ! -d "$FG_DIR/$file" ]]; then
-                        echo "${yellow}${bold}FGmod is partially installed. 'licenses' is missing or not a directory.${normal}"
-                        return
-                    fi
-                elif [[ ! -f "$FG_DIR/$file" ]]; then
-                    echo "${yellow}${bold}FGmod is partially installed. Missing file: ${file}${normal}"
-                    return
-                fi
-            done
-            echo "${green}${bold}FGmod is installed and ready to use.${normal}"
-        else
-            echo "${red}${bold}FGmod is not installed.${normal}"
-        fi
-    }
-    function check_decky_installed() {
-        PLUGIN_DIR="$HOME/homebrew/plugins/Decky-Framegen"
-        if [[ -d "$PLUGIN_DIR" ]]; then
-            echo "${green}${bold}Decky Framegen plugin is installed.${normal}"
-        else
-            echo "${red}${bold}Decky Framegen plugin is not installed.${normal}"
-        fi
-    }
-    OPTION={{ ACTION }}
-    if [ "$OPTION" == "prompt" ]; then
-        echo ""
-        echo "Current Status:"
-        check_fgmod_installed
-        echo ""
-        check_decky_installed
-        echo ""
-        echo "${bold}FGmod${normal} enables the replacement of DLSS Upscaling and Framegen with FSR3 equivalents."
-        echo ""
-        echo "Below you can install or remove ${bold}FGmod${normal} files,"
-        echo "or install the ${bold}Decky Framegen${normal} plugin for managing everything conveniently in Game Mode."
-        echo ""
-        echo "To patch a Steam game after installation, use the launch option: '~/fgmod/fgmod %COMMAND%'"
-        echo "To revert changes to the game's files, use: '~/fgmod/fgmod-uninstaller.sh %COMMAND%'"
-        echo ""
-        echo "What would you like to do with FGmod?"
-        echo ""
-        OPTION=$(ugum choose "Install Decky Framegen plugin" "Install FGmod" "Uninstall FGmod" "Exit without changes")
-    elif [ "$OPTION" == "help" ]; then
-        echo "Usage: just get-framegen <option>"
-        echo "  <option>: Specify an action - 'install', 'install-decky-plugin', or 'uninstall'"
-        echo "  Use 'install' to install FGmod."
-        echo "  Use 'install-decky-plugin' to install the Decky Framegen plugin."
-        echo "  Use 'uninstall' to remove FGmod."
-        exit 0
-    fi
-    if [ "${OPTION,,}" == "install" ] || [ "${OPTION,,}" == "install fgmod" ]; then
-        echo "Installing FGmod..."
-        TMP_DIR=$(mktemp -d) && cd "$TMP_DIR"
-        git clone https://github.com/xXJSONDeruloXx/fgmod-bazzite.git .
-        chmod +x prepare.sh
-        ./prepare.sh
-        echo "FGmod installed successfully!"
-        echo "To patch a game, add the launch option '~/fgmod/fgmod %COMMAND%' in its settings."
-    elif [ "${OPTION,,}" == "install-decky-plugin" ] || [ "${OPTION,,}" == "install decky framegen plugin" ]; then
-        echo "Installing Decky Framegen plugin..."
-
-        # Check if Decky is installed
-        if [ ! -d "$HOME/homebrew" ]; then
-            echo "Error: Decky Loader is not installed. Please run 'ujust setup-decky install' first."
-            exit 1
-        fi
-
-        API_URL="https://api.github.com/repos/xXJSONDeruloXx/Decky-Framegen/releases/latest"
-        PLUGIN_URL=$(timeout 30 curl -s "$API_URL" | grep "browser_download_url" | grep ".zip" | cut -d '"' -f 4 || echo "")
-
-        if [ -z "$PLUGIN_URL" ]; then
-            echo "Failed to fetch the latest Decky Framegen release or API timeout. Exiting..."
-            exit 1
-        fi
-
-        PLUGIN_NAME="Decky-Framegen"
-        PLUGIN_DIR="$HOME/homebrew/plugins"
-
-        # Ensure plugins directory exists and has correct permissions
-        if [ ! -d "$PLUGIN_DIR" ]; then
-            echo "Creating plugins directory..."
-            sudo mkdir -p "$PLUGIN_DIR"
-        fi
-
-        # Work in a temporary directory to avoid permission issues
-        TEMP_DIR=$(mktemp -d)
-        cd "$TEMP_DIR" || { echo "Failed to create temp directory"; exit 1; }
-
-        # Remove any existing plugin folder
-        if [ -d "$PLUGIN_DIR/$PLUGIN_NAME" ]; then
-            echo "Removing existing $PLUGIN_NAME directory..."
-            sudo rm -rf "$PLUGIN_DIR/$PLUGIN_NAME"
-        fi
-
-        echo "Downloading $PLUGIN_NAME from $PLUGIN_URL..."
-        timeout 60 curl -L -o "${PLUGIN_NAME}.zip" "$PLUGIN_URL"
-        if [ $? -ne 0 ]; then
-            echo "Download failed or timed out!"
-            cd - > /dev/null
-            rm -rf "$TEMP_DIR"
-            exit 1
-        fi
-
-        echo "Extracting $PLUGIN_NAME..."
-        unzip -o "${PLUGIN_NAME}.zip" -d .
-        if [ $? -ne 0 ]; then
-            echo "Extraction failed!"
-            cd - > /dev/null
-            rm -rf "$TEMP_DIR"
-            exit 1
-        fi
-
-        # Handle nested folder structure if needed
-        if [ -d "./${PLUGIN_NAME}/${PLUGIN_NAME}" ]; then
-            echo "Fixing folder structure..."
-            mv "./${PLUGIN_NAME}/${PLUGIN_NAME}"/* "./${PLUGIN_NAME}/"
-            rm -rf "./${PLUGIN_NAME}/${PLUGIN_NAME}"
-        fi
-
-        # Handle different extracted folder names (e.g., "Decky Framegen", "Decky-Framegen-Plus", etc.)
-        EXTRACTED_FOLDERS=$(find . -maxdepth 1 -type d \( -name "Decky*Framegen*" -o -name "Decky*framegen*" \) | grep -v "^\./$" || echo "")
-
-        # If we found a folder but it's not the expected name
-        if [ -n "$EXTRACTED_FOLDERS" ] && [ ! -d "./$PLUGIN_NAME" ]; then
-            FOUND_FOLDER=$(echo "$EXTRACTED_FOLDERS" | head -n 1)
-            echo "Found plugin folder with different name: $FOUND_FOLDER"
-            echo "Renaming to $PLUGIN_NAME..."
-            mv "$FOUND_FOLDER" "./$PLUGIN_NAME"
-        fi
-
-        # Move plugin to final location
-        if [ -d "./$PLUGIN_NAME" ]; then
-            echo "Installing plugin to $PLUGIN_DIR..."
-            sudo mv "./$PLUGIN_NAME" "$PLUGIN_DIR/"
-
-            # Fix permissions on plugin files and make scripts executable
-            echo "Setting correct permissions..."
-            sudo find "$PLUGIN_DIR/$PLUGIN_NAME" -name "*.sh" -exec chmod +x {} \;
-            sudo find "$PLUGIN_DIR/$PLUGIN_NAME" -name "*.py" -exec chmod +x {} \;
-
-            echo "$PLUGIN_NAME has been installed successfully to $PLUGIN_DIR!"
-            echo "Please restart Decky Loader to activate the plugin."
-        else
-            echo "Installation failed. Plugin folder could not be found as expected."
-            cd - > /dev/null
-            rm -rf "$TEMP_DIR"
-            exit 1
-        fi
-
-        # Clean up
-        cd - > /dev/null
-        rm -rf "$TEMP_DIR"
-    elif [ "${OPTION,,}" == "uninstall" ] || [ "${OPTION,,}" == "uninstall fgmod" ]; then
-        echo "Uninstalling FGmod..."
-        if [[ -d "$HOME/fgmod" ]]; then
-            rm -rf "$HOME/fgmod"
-        fi
-        downloads_dir="$HOME/Downloads"
-        files_to_remove=("prepare.sh" "fgmod.sh" "fgmod-uninstaller.sh")
-        for file in "${files_to_remove[@]}"; do
-            if [[ -f "$downloads_dir/$file" ]]; then
-                rm "$downloads_dir/$file"
-            fi
-        done
-        echo "FGmod removed successfully!"
-    elif [ "${OPTION,,}" == "exit" ] || [ "${OPTION,,}" == "exit without changes" ]; then
-        echo "No changes made. Exiting..."
-        exit 0
-    else
-        echo "Invalid option. Exiting..."
-        exit 1
-    fi
-
-# Set up Lossless Scaling vulkan layer and decky plugin. This mod enables lossless scaling compatibility in linux. Be sure to also install Lossless Scaling from Steam to internal storage.
+# Set up Lossless Scaling vulkan layer. This mod enables lossless scaling compatibility in linux. Be sure to also install Lossless Scaling from Steam to internal storage.
 get-lsfg ACTION="prompt":
     #!/usr/bin/bash
     source /usr/lib/ujust/ujust.sh
@@ -208,36 +17,23 @@ get-lsfg ACTION="prompt":
         fi
     }
 
-    function check_decky_lsfg_installed() {
-        PLUGIN_DIR="$HOME/homebrew/plugins/Lossless Scaling"
-        if [[ -d "$PLUGIN_DIR" ]]; then
-            echo "${green}${bold}Decky Lossless Scaling plugin is installed.${normal}"
-        else
-            echo "${red}${bold}Decky Lossless Scaling plugin is not installed.${normal}"
-        fi
-    }
-
     OPTION={{ ACTION }}
     if [ "$OPTION" == "prompt" ]; then
         echo ""
         echo "Current Status:"
         check_lsfg_installed
         echo ""
-        check_decky_lsfg_installed
-        echo ""
         echo "${bold}lsfg-vk${normal} enables lossless scaling functionality for supported games."
         echo ""
-        echo "Below you can install or remove ${bold}lsfg-vk${normal} directly,"
-        echo "or install the ${bold}Decky Lossless Scaling${normal} plugin for managing everything conveniently in Game Mode."
+        echo "Below you can install or remove ${bold}lsfg-vk${normal} directly."
         echo ""
         echo "What would you like to do with lsfg-vk?"
         echo ""
-        OPTION=$(ugum choose "Install Decky Lossless Scaling plugin" "Install lsfg-vk directly" "Uninstall lsfg-vk" "Exit without changes")
+        OPTION=$(ugum choose "Install lsfg-vk directly" "Install Decky Plugin" "Uninstall lsfg-vk" "Exit without changes")
     elif [ "$OPTION" == "help" ]; then
         echo "Usage: just get-lsfg <option>"
-        echo "  <option>: Specify an action - 'install', 'install-decky-plugin', or 'uninstall'"
+        echo "  <option>: Specify an action - 'install' or 'uninstall'"
         echo "  Use 'install' to install lsfg-vk directly."
-        echo "  Use 'install-decky-plugin' to install the Decky Lossless Scaling plugin."
         echo "  Use 'uninstall' to remove lsfg-vk."
         exit 0
     fi
@@ -347,106 +143,9 @@ get-lsfg ACTION="prompt":
 
         echo "lsfg-vk installed successfully!"
         echo "The lsfg-vk UI should now be available in your applications menu and on your desktop."
-    elif [ "${OPTION,,}" == "install-decky-plugin" ] || [ "${OPTION,,}" == "install decky lossless scaling plugin" ]; then
-        echo "Installing Decky Lossless Scaling plugin..."
-
-        # Check if Decky is installed
-        if [ ! -d "$HOME/homebrew" ]; then
-            echo "Error: Decky Loader is not installed. Please run 'ujust setup-decky install' first."
-            exit 1
-        fi
-
-        API_URL="https://api.github.com/repos/xXJSONDeruloXx/decky-lossless-scaling-vk/releases/latest"
-        PLUGIN_URL=$(timeout 30 curl -s "$API_URL" | grep "browser_download_url" | grep ".zip" | cut -d '"' -f 4 || echo "")
-
-        if [ -z "$PLUGIN_URL" ]; then
-            echo "Failed to fetch the latest Decky Lossless Scaling release or API timeout. Exiting..."
-            exit 1
-        fi
-
-        PLUGIN_NAME="Lossless-Scaling"
-        PLUGIN_DIR="$HOME/homebrew/plugins"
-
-        # Ensure plugins directory exists and has correct permissions
-        if [ ! -d "$PLUGIN_DIR" ]; then
-            echo "Creating plugins directory..."
-            sudo mkdir -p "$PLUGIN_DIR"
-        fi
-
-        # Work in a temporary directory to avoid permission issues
-        TEMP_DIR=$(mktemp -d)
-        cd "$TEMP_DIR" || { echo "Failed to create temp directory"; exit 1; }
-
-        # Remove any existing plugin folder
-        if [ -d "$PLUGIN_DIR/$PLUGIN_NAME" ]; then
-            echo "Removing existing $PLUGIN_NAME directory..."
-            sudo rm -rf "$PLUGIN_DIR/$PLUGIN_NAME"
-        fi
-
-        # Also remove the expected final name in case it exists with different permissions
-        if [ -d "$PLUGIN_DIR/Lossless Scaling" ]; then
-            echo "Removing existing Lossless Scaling directory..."
-            sudo rm -rf "$PLUGIN_DIR/Lossless Scaling"
-        fi
-
-        echo "Downloading $PLUGIN_NAME from $PLUGIN_URL..."
-        timeout 60 curl -L -o "Lossless.Scaling.zip" "$PLUGIN_URL"
-        if [ $? -ne 0 ]; then
-            echo "Download failed or timed out!"
-            cd - > /dev/null
-            rm -rf "$TEMP_DIR"
-            exit 1
-        fi
-
-        echo "Extracting $PLUGIN_NAME..."
-        unzip -o "Lossless.Scaling.zip" -d .
-        if [ $? -ne 0 ]; then
-            echo "Extraction failed!"
-            cd - > /dev/null
-            rm -rf "$TEMP_DIR"
-            exit 1
-        fi
-
-        # Handle nested folder structure if needed
-        if [ -d "./${PLUGIN_NAME}/${PLUGIN_NAME}" ]; then
-            echo "Fixing folder structure..."
-            mv "./${PLUGIN_NAME}/${PLUGIN_NAME}"/* "./${PLUGIN_NAME}/"
-            rm -rf "./${PLUGIN_NAME}/${PLUGIN_NAME}"
-        fi
-
-        # Handle different extracted folder names (e.g., "Lossless Scaling", "Lossless-Scaling-*", etc.)
-        EXTRACTED_FOLDERS=$(find . -maxdepth 1 -type d \( -name "Lossless*Scaling*" -o -name "lossless*scaling*" \) | grep -v "^\./$" || echo "")
-
-        # If we found a folder but it's not the expected name
-        if [ -n "$EXTRACTED_FOLDERS" ] && [ ! -d "./$PLUGIN_NAME" ]; then
-            FOUND_FOLDER=$(echo "$EXTRACTED_FOLDERS" | head -n 1)
-            echo "Found plugin folder with different name: $FOUND_FOLDER"
-            echo "Renaming to $PLUGIN_NAME..."
-            mv "$FOUND_FOLDER" "./$PLUGIN_NAME"
-        fi
-
-        # Move plugin to final location
-        if [ -d "./$PLUGIN_NAME" ]; then
-            echo "Installing plugin to $PLUGIN_DIR..."
-            sudo mv "./$PLUGIN_NAME" "$PLUGIN_DIR/Lossless Scaling"
-
-            # Fix permissions on plugin files and make scripts executable
-            echo "Setting correct permissions..."
-            sudo find "$PLUGIN_DIR/Lossless Scaling" -name "*.sh" -exec chmod +x {} \;
-            sudo find "$PLUGIN_DIR/Lossless Scaling" -name "*.py" -exec chmod +x {} \;
-
-            echo "Lossless Scaling plugin has been installed successfully to $PLUGIN_DIR!"
-            echo "Please restart Decky Loader to activate the plugin."
-        else
-            echo "Installation failed. Plugin folder could not be found as expected."
-            cd - > /dev/null
-            rm -rf "$TEMP_DIR"
-            exit 1
-        fi
-
-        # Clean up
-        cd - > /dev/null
-        rm -rf "$TEMP_DIR"
+    elif [ "${OPTION,,}" == "install decky plugin" ] || [ "${OPTION,,}" == "install-decky-plugin" ]; then
+        echo "Installing Decky LSFG plugin..."
+        ujust install-decky-plugins decky-lsfg-vk
     elif [ "${OPTION,,}" == "uninstall" ] || [ "${OPTION,,}" == "uninstall lsfg-vk" ]; then
         echo "Uninstalling lsfg-vk..."
 

@@ -8,10 +8,18 @@ from collections import defaultdict
 
 REGISTRY = "docker://ghcr.io/ublue-os/"
 
-IMAGE_MATRIX = {
-    "base": ["desktop", "deck", "nvidia-closed", "nvidia-open"],
-    "de": ["kde", "gnome"],
-}
+IMAGES = [
+    "bazzite",
+    "bazzite-gnome",
+    "bazzite-deck",
+    "bazzite-deck-gnome",
+    "bazzite-deck-nvidia",
+    "bazzite-deck-nvidia-gnome",
+    "bazzite-nvidia",
+    "bazzite-gnome-nvidia",
+    "bazzite-nvidia-open",
+    "bazzite-gnome-nvidia-open",
+]
 
 RETRIES = 3
 RETRY_WAIT = 5
@@ -31,12 +39,12 @@ OTHER_NAMES = {
     "kde": "### KDE Images\n| | Name | Previous | New |\n| --- | --- | --- | --- |{changes}\n\n",
     "gnome": "### Gnome Images\n| | Name | Previous | New |\n| --- | --- | --- | --- |{changes}\n\n",
     "nvidia": "### Nvidia Images\n| | Name | Previous | New |\n| --- | --- | --- | --- |{changes}\n\n",
-    # "asus": "### Asus Images\n| | Name | Previous | New |\n| --- | --- | --- | --- |{changes}\n\n",
-    # "surface": "### Surface Images\n| | Name | Previous | New |\n| --- | --- | --- | --- |{changes}\n\n",
 }
 
-COMMITS_FORMAT = "### Commits\n| Hash | Subject |\n| --- | --- |{commits}\n\n"
-COMMIT_FORMAT = "\n| **[{short}](https://github.com/ublue-os/bazzite/commit/{hash})** | {subject} |"
+COMMITS_FORMAT = (
+    "### Commits\n| Hash | Subject | Author |\n| --- | --- | --- |{commits}\n\n"
+)
+COMMIT_FORMAT = "\n| **[{short}](https://github.com/ublue-os/bazzite/commit/{hash})** | {subject} | {author} |"
 
 CHANGELOG_TITLE = "{tag}: {pretty}"
 CHANGELOG_FORMAT = """\
@@ -54,6 +62,8 @@ From previous `{target}` version `{prev}` there have been the following changes.
 | **Gnome** | {pkgrel:gnome-control-center-filesystem} |
 | **KDE** | {pkgrel:plasma-desktop} |
 | **[HHD](https://github.com/hhd-dev/hhd)** | {pkgrel:hhd} |
+| **Nvidia** | {pkgrel:nvidia-kmod-common} |
+| **Nvidia LTS** | {pkgrel:nvidia-kmod-common-lts} |
 
 {changes}
 
@@ -76,22 +86,28 @@ BLACKLIST_VERSIONS = [
     "gnome-control-center-filesystem",
     "plasma-desktop",
     "atheros-firmware",
+    "nvidia-kmod-common",
+    "nvidia-kmod-common-lts",
+    "hhd-git",
+    "hhd",
 ]
+
+PKG_ALIAS = {
+    "hhd-git": "hhd",
+}
 
 
 def get_images():
-    for base, de in product(*IMAGE_MATRIX.values()):
-        img = "bazzite"
-        if base == "deck":
-            img += "-deck"
+    for img in IMAGES:
+        if "deck" in img:
+            base = "deck"
+        else:
+            base = "desktop"
 
-        if de == "gnome":
-            img += "-gnome"
-
-        if base == "nvidia-closed":
-            img += "-nvidia"
-        elif base == "nvidia-open":
-            img += "-nvidia-open"
+        if "gnome" in img:
+            de = "gnome"
+        else:
+            de = "kde"
 
         yield img, base, de
 
@@ -161,6 +177,13 @@ def get_packages(manifests: dict[str, Any]):
     return packages
 
 
+def is_nvidia(img: str, lts: bool):
+    if lts:
+        return "nvidia" in img and "nvidia-open" not in img and "deck-nvidia" not in img
+    else:
+        return "nvidia-open" in img or "deck-nvidia" in img
+
+
 def get_package_groups(prev: dict[str, Any], manifests: dict[str, Any]):
     common = set()
     others = {k: set() for k in OTHER_NAMES.keys()}
@@ -196,7 +219,7 @@ def get_package_groups(prev: dict[str, Any], manifests: dict[str, Any]):
             if img not in pkg:
                 continue
 
-            if t == "nvidia" and "nvidia" not in base:
+            if t == "nvidia" and "nvidia" not in img:
                 continue
             if t == "kde" and de != "kde":
                 continue
@@ -224,8 +247,10 @@ def get_package_groups(prev: dict[str, Any], manifests: dict[str, Any]):
 def get_versions(manifests: dict[str, Any]):
     versions = {}
     pkgs = get_packages(manifests)
-    for img_pkgs in pkgs.values():
+    for img, img_pkgs in pkgs.items():
         for pkg, v in img_pkgs.items():
+            if is_nvidia(img, lts=True) and "nvidia" in pkg:
+                pkg += "-lts"
             versions[pkg] = re.sub(FEDORA_PATTERN, "", v)
     return versions
 
@@ -244,6 +269,8 @@ def calculate_changes(pkgs: list[str], prev: dict[str, str], curr: dict[str, str
         if pkg in curr and curr.get(pkg, None) in blacklist_ver:
             continue
         if pkg in prev and prev.get(pkg, None) in blacklist_ver:
+            continue
+        if pkg.endswith("-lts"):
             continue
 
         if pkg not in prev:
@@ -281,7 +308,7 @@ def get_commits(prev_manifests, manifests, workdir: str):
                 "-C",
                 workdir,
                 "log",
-                "--pretty=format:%H %h %s",
+                "--pretty=format:%H|%h|%an|%s",
                 f"{start}..{finish}",
             ],
             check=True,
@@ -292,7 +319,10 @@ def get_commits(prev_manifests, manifests, workdir: str):
         for commit in commits.split("\n"):
             if not commit:
                 continue
-            hash, short, subject = commit.split(" ", 2)
+            parts = commit.split("|")
+            if len(parts) < 4:
+                continue
+            commit_hash, short, author, subject = parts
 
             if subject.lower().startswith("merge"):
                 continue
@@ -300,7 +330,8 @@ def get_commits(prev_manifests, manifests, workdir: str):
             out += (
                 COMMIT_FORMAT.replace("{short}", short)
                 .replace("{subject}", subject)
-                .replace("{hash}", hash)
+                .replace("{hash}", commit_hash)
+                .replace("{author}", author)
             )
 
         if out:
@@ -334,7 +365,7 @@ def generate_changelog(
         except Exception as e:
             print(f"Failed to get finish hash:\n{e}")
             finish = ""
-        
+
         # Remove .0 from curr
         curr_pretty = re.sub(r"\.\d{1,2}$", "", curr)
         # Remove target- from curr
@@ -349,7 +380,9 @@ def generate_changelog(
     changelog = CHANGELOG_FORMAT
 
     changelog = (
-        changelog.replace("{handwritten}", handwritten if handwritten else HANDWRITTEN_PLACEHOLDER)
+        changelog.replace(
+            "{handwritten}", handwritten if handwritten else HANDWRITTEN_PLACEHOLDER
+        )
         .replace("{target}", target)
         .replace("{prev}", prev)
         .replace("{curr}", curr)
@@ -358,11 +391,12 @@ def generate_changelog(
     for pkg, v in versions.items():
         if pkg not in prev_versions or prev_versions[pkg] == v:
             changelog = changelog.replace(
-                "{pkgrel:" + pkg + "}", PATTERN_PKGREL.format(version=v)
+                "{pkgrel:" + (PKG_ALIAS.get(pkg, None) or pkg) + "}",
+                PATTERN_PKGREL.format(version=v),
             )
         else:
             changelog = changelog.replace(
-                "{pkgrel:" + pkg + "}",
+                "{pkgrel:" + (PKG_ALIAS.get(pkg, None) or pkg) + "}",
                 PATTERN_PKGREL_CHANGED.format(prev=prev_versions[pkg], new=v),
             )
 
@@ -395,7 +429,7 @@ def main():
 
     # Remove refs/tags, refs/heads, refs/remotes e.g.
     # Tags cannot include / anyway.
-    target = args.target.split('/')[-1]
+    target = args.target.split("/")[-1]
 
     if target == "main":
         target = "stable"
@@ -416,7 +450,7 @@ def main():
     )
 
     print(f"Changelog:\n# {title}\n{changelog}")
-    print(f"\nOutput:\nTITLE=\"{title}\"\nTAG={curr}")
+    print(f'\nOutput:\nTITLE="{title}"\nTAG={curr}')
 
     with open(args.changelog, "w") as f:
         f.write(changelog)

@@ -2,19 +2,22 @@
 
 alias patch-gmod := fix-gmod
 
-# Patch GMod's 64-bit beta to work properly on Linux (https://github.com/solsticegamestudios/GModCEFCodecFix)
+# Patch GMod's 64-bit beta to work properly on Linux (https://github.com/solsticegamestudios/GModPatchTool)
+[group("gaming")]
 fix-gmod:
     #!/usr/bin/bash
     mkdir -p /tmp/patch-gmod
     wget \
-      $(curl -s https://api.github.com/repos/solsticegamestudios/GModCEFCodecFix/releases/latest | \
-      jq -r ".assets[] | select(.name | test(\"GModCEFCodecFix-Linux\")) | .browser_download_url") \
+      $(curl -s https://api.github.com/repos/solsticegamestudios/GModPatchTool/releases/latest | \
+      jq -r ".assets[] | select(.name | test(\"GModPatchTool-Linux.zip\")) | .browser_download_url") \
       -P /tmp/patch-gmod
-    chmod +x /tmp/patch-gmod/GModCEFCodecFix-Linux
-    /tmp/patch-gmod/GModCEFCodecFix-Linux
+    cd /tmp/patch-gmod && unzip -q GModPatchTool-Linux.zip
+    chmod +x /tmp/patch-gmod/gmodpatchtool
+    /tmp/patch-gmod/gmodpatchtool
     rm -rf /tmp/patch-gmod
 
 # Kills all processes related to wine and proton. This forces it to restart next time you launch the game (you might still have to press STOP in steam to kill the game binary)
+[group("gaming")]
 fix-proton-hang:
     #!/usr/bin/bash
     PROTONCORE=(pv-bwrap pressure-vessel reaper explorer.exe rpcss.exe plugplay.exe services.exe svchost.exe winedevice.exe winedevice.exe wineserver)
@@ -23,6 +26,7 @@ fix-proton-hang:
     done
 
 # Reset the Steam folder back to a fresh state
+[group("gaming")]
 fix-reset-steam:
     #!/usr/bin/bash
     source /usr/lib/ujust/ujust.sh
@@ -50,6 +54,7 @@ fix-reset-steam:
     exit 0
 
 # Toggle Bluetooth headset profile mode. If enabled, mic will be disabled on the Bluetooth device preventing the switch to headset profile, which has poor audio quality. Disable to restore mic functionality.
+[group("audio")]
 toggle-bt-mic:
     #!/usr/bin/bash
     CONFIG_FILE="/etc/wireplumber/wireplumber.conf.d/51-mitigate-annoying-profile-switch.conf"
@@ -157,6 +162,7 @@ toggle-wol ACTION="":
     fi
 
 # enable or disable IWD as a replacement for wpa_supplicant
+[group("network")]
 toggle-iwd:
     #!/usr/bin/bash
     # Explain the purpose of the script
@@ -179,11 +185,13 @@ toggle-iwd:
       sudo mkdir -p "/etc/NetworkManager/conf.d/"
       sudo rm -f "/etc/NetworkManager/conf.d/iwd.conf"
       printf "[device]\nwifi.backend=iwd" | sudo tee /etc/NetworkManager/conf.d/iwd.conf > /dev/null
+      sudo systemctl mask wpa_supplicant.service
       remove_saved_networks
       echo -e "iwd enabled. Reboot required to apply changes."
     }
     disable_iwd() {
       sudo rm -f "/etc/NetworkManager/conf.d/iwd.conf"
+      sudo systemctl unmask wpa_supplicant.service
       remove_saved_networks
       echo -e "iwd disabled. Reboot required to apply changes."
     }
@@ -208,6 +216,7 @@ toggle-iwd:
     esac
 
 # enable or disable a fix for 7th and 8th generation Intel chips not being able to sleep
+[group("hardware")]
 toggle-i915-sleep-fix:
     #!/usr/bin/bash
     # Explain the purpose of the script
@@ -287,6 +296,47 @@ toggle-i915-sleep-fix:
         echo "Invalid choice. Exiting without changes."
         ;;
     esac
+
+# Toggle GPP0 wakeup fix to prevent unwanted system wake-ups, primarily affects Gigabyte motherboards.
+[group("hardware")]
+_toggle-gigabyte-wake-fix:
+    #!/usr/bin/bash
+    source /usr/lib/ujust/ujust.sh
+    SERVICE_FILE="/etc/systemd/system/biosWakeupWorkaround.service"
+
+    if systemctl is-enabled biosWakeupWorkaround.service &>/dev/null; then
+      echo "Current status: ${green}${bold}enabled${normal}"
+      CHOICE=$(ugum choose "Disable GPP0 wakeup fix" "Exit without changes")
+      if [[ "$CHOICE" == "Disable GPP0 wakeup fix" ]]; then
+        sudo systemctl disable --now biosWakeupWorkaround.service
+        sudo rm -f "$SERVICE_FILE"
+        sudo systemctl daemon-reload
+        echo "GPP0 wakeup fix ${red}${bold}disabled${normal} and service file removed."
+      else
+        echo "No changes made."
+      fi
+    else
+      echo "Current status: ${red}${bold}disabled${normal}"
+      CHOICE=$(ugum choose "Enable GPP0 wakeup fix" "Exit without changes")
+      if [[ "$CHOICE" == "Enable GPP0 wakeup fix" ]]; then
+        {
+          echo "[Unit]"
+          echo "Description=Workaround for Gigabyte BIOS sleep/wakeup bug"
+          echo ""
+          echo "[Service]"
+          echo "Type=oneshot"
+          echo 'ExecStart=/bin/sh -c '"'"'if grep GPP0 /proc/acpi/wakeup | grep -q enabled; then echo GPP0 > /proc/acpi/wakeup; fi'"'"
+          echo ""
+          echo "[Install]"
+          echo "WantedBy=multi-user.target"
+        } | sudo tee "$SERVICE_FILE" > /dev/null
+        sudo systemctl daemon-reload
+        sudo systemctl enable --now biosWakeupWorkaround.service
+        echo "GPP0 wakeup fix ${green}${bold}enabled${normal}."
+      else
+        echo "No changes made."
+      fi
+    fi
 
 # Manage Steam game shortcuts on the Desktop. Usage: just steam-icons [command] (list, remove, enable, disable)
 steam-icons ACTION="":
@@ -388,4 +438,70 @@ steam-icons ACTION="":
       *)
       echo "Invalid choice. Exiting without changes."
       ;;
+    esac
+
+# Toggle CEC_ONSLEEP_STANDBY - Controls whether TV goes to standby when system sleeps
+toggle-cec-sleep ACTION="":
+    #!/usr/bin/bash
+    source /usr/lib/ujust/ujust.sh
+    CONFIG_FILE="/etc/default/cec-control"
+
+    # Check if config file exists
+    if [[ ! -f "$CONFIG_FILE" ]]; then
+      echo -e "${red}${bold}Error:${normal} CEC config file not found at $CONFIG_FILE"
+      echo "CEC control may not be installed or configured on this system."
+      exit 1
+    fi
+
+    # Determine current state (default to false if not set)
+    if grep -q '^CEC_ONSLEEP_STANDBY=' "$CONFIG_FILE" 2>/dev/null; then
+      CURRENT_VALUE=$(grep '^CEC_ONSLEEP_STANDBY=' "$CONFIG_FILE" | cut -d= -f2)
+    else
+      CURRENT_VALUE="false"
+    fi
+
+    CURRENT_STATE="Disabled"
+    if [[ "$CURRENT_VALUE" == "true" ]]; then
+      CURRENT_STATE="Enabled"
+    fi
+
+    OPTION="{{ ACTION }}"
+
+    if [ "$OPTION" == "help" ]; then
+      echo "Usage: ujust toggle-cec-onsleep <option>"
+      echo "  <option>: Specify the option to skip the interactive prompt"
+      echo "  Use 'enable' to make TV standby when system sleeps"
+      echo "  Use 'disable' to prevent TV standby when system sleeps"
+      exit 0
+    elif [ -z "$OPTION" ]; then
+      echo -e "${bold}CEC On-Sleep Standby:${normal} $CURRENT_STATE"
+      echo ""
+      echo "When enabled, your TV will go to standby when the system sleeps."
+      echo "When disabled, your TV will remain on when the system sleeps."
+      echo ""
+      OPTION=$(ugum choose "Enable" "Disable" "Exit without saving")
+    fi
+
+    case "$OPTION" in
+      Enable|enable)
+        echo "Enabling CEC on-sleep standby..."
+        if grep -q '^CEC_ONSLEEP_STANDBY=' "$CONFIG_FILE"; then
+          sudo sed -i 's/^CEC_ONSLEEP_STANDBY=.*/CEC_ONSLEEP_STANDBY=true/' "$CONFIG_FILE"
+        else
+          echo 'CEC_ONSLEEP_STANDBY=true' | sudo tee -a "$CONFIG_FILE" > /dev/null
+        fi
+        echo -e "CEC on-sleep standby is now ${green}${bold}Enabled${normal}."
+        ;;
+      Disable|disable)
+        echo "Disabling CEC on-sleep standby..."
+        if grep -q '^CEC_ONSLEEP_STANDBY=' "$CONFIG_FILE"; then
+          sudo sed -i 's/^CEC_ONSLEEP_STANDBY=.*/CEC_ONSLEEP_STANDBY=false/' "$CONFIG_FILE"
+        else
+          echo 'CEC_ONSLEEP_STANDBY=false' | sudo tee -a "$CONFIG_FILE" > /dev/null
+        fi
+        echo -e "CEC on-sleep standby is now ${red}${bold}Disabled${normal}."
+        ;;
+      "Exit without saving"|*)
+        echo "No changes made."
+        ;;
     esac

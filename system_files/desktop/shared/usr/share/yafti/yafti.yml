@@ -12,17 +12,17 @@ screens:
         title: "Decky Bazzite Buddy"
         description: "A Decky plugin that lets you see Bazzite changelogs in Game Mode."
         default: false
-        script: "ujust get-decky-bazzite-buddy"
-      - id: "decky-framegen-plus"
-        title: "Decky Framegen Plus"
-        description: "A Decky plugin that swaps DLSS for FSR and adds framegen to non-framegen games"
+        script: "ujust install-decky-plugins bazzite-buddy"
+      - id: "decky-framegen"
+        title: "Decky Framegen"
+        description: "A Decky plugin that sets up OptiScaler for any Steam game."
         default: false
-        script: "ujust get-framegen install-decky-plugin"
+        script: "ujust install-decky-plugins decky-framegen"
       - id: "decky-lossless-scaling"
         title: "Decky Lossless Scaling"
         description: "A Decky plugin for lossless scaling compatibility in Linux"
         default: false
-        script: "ujust get-lsfg install-decky-plugin"
+        script: "ujust install-decky-plugins decky-lsfg-vk"
       - id: "emudeck"
         title: "EmuDeck"
         description: "A utility for installing and configuring emulators on the Steam Deck"
@@ -43,11 +43,6 @@ screens:
         description: "Open source RGB lighting control that doesn't depend on manufacturer software"
         default: false
         script: "ujust install-openrgb"
-      - id: "wootility"
-        title: "Wootility"
-        description: "A configurator for Wooting keyboards"
-        default: false
-        script: "ujust install-wootility"
       - id: "resilio-sync"
         title: "Resilio Sync"
         description: "A file synchronization utility powered by BitTorrent"
@@ -204,6 +199,11 @@ screens:
         description: "Enable Wake-on-LAN functionality to power on your device remotely"
         default: false
         script: "ujust toggle-wol enable"
+      - id: "cec-sleep-standby"
+        title: "CEC Sleep Standby"
+        description: "Put TV to standby when system sleeps via HDMI-CEC. Requires a CEC-compatible Device, or Pulse 8 HDMI-CEC adapter."
+        default: false
+        script: "ujust toggle-cec-sleep enable"
       - id: "steam-icons"
         title: "Clean Steam Shortcuts"
         description: "Automatically removes Steam shortcuts from the desktop on boot, useful for keeping the desktop clean when installing games via game mode."
@@ -224,3 +224,8 @@ screens:
         description: "Command-line version of the Steam client for dedicated servers and game downloads"
         default: false
         script: "ujust install-steamcmd"
+      - id: "global-fsr4"
+        title: "Global FSR4 Upgrade (RDNA4)"
+        description: "Toggle global Proton FSR4 upgrade on RDNA4 GPUs; upgrades FSR 3.1+ → FSR 4 on proton 10 or GE 10-25 or later"
+        default: false
+        script: "ujust toggle-global-fsr4 enable"
